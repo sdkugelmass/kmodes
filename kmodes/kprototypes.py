@@ -167,7 +167,34 @@ class KPrototypes(kmodes.KModes):
 
         return self
 
+    def fit_predict2(self, X, y=None, **kwargs):
+        """Compute cluster centroids and predict cluster index for each sample.
+
+        Convenience method; equivalent to calling fit(X) followed by
+        predict(X).
+        """
+        # return the labels and the distance for each point
+        return self.fit(X, **kwargs).predict2(X, **kwargs)
+
     def predict(self, X, categorical=None):
+        """Predict the closest cluster each sample in X belongs to.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+            New data to predict.
+        categorical : Indices of columns that contain categorical data
+
+        Returns
+        -------
+        labels : array, shape [n_samples,]
+            Index of the cluster each sample belongs to.
+        """
+
+        # only return the labels, skip the distance vector
+        return self.predict2(X, categorical)[0]
+
+    def predict2(self, X, categorical=None):
         """Predict the closest cluster each sample in X belongs to.
 
         Parameters
@@ -193,8 +220,8 @@ class KPrototypes(kmodes.KModes):
         Xnum, Xcat = _split_num_cat(X, categorical)
         Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
         Xcat, _ = encode_features(Xcat, enc_map=self._enc_map)
-        return labels_cost(Xnum, Xcat, self._enc_cluster_centroids,
-                           self.num_dissim, self.cat_dissim, self.gamma)[0]
+        return labels_cost2(Xnum, Xcat, self._enc_cluster_centroids,
+                            self.num_dissim, self.cat_dissim, self.gamma)[0:2]
 
     @property
     def cluster_centroids_(self):
@@ -213,11 +240,22 @@ def labels_cost(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=N
     a list of centroids for the k-prototypes algorithm.
     """
 
+    # return the labels and total cost, not the distance vectors
+    l, d, t = labels_cost2(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship)
+    return (l, t)
+
+
+def labels_cost2(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=None):
+    """Calculate labels and cost function given a matrix of points and
+    a list of centroids for the k-prototypes algorithm.
+    """
+
     n_points = Xnum.shape[0]
     Xnum = check_array(Xnum)
 
     cost = 0.
     labels = np.empty(n_points, dtype=np.uint16)
+    distances = np.empty(n_points, dtype=np.float64)
     for ipoint in range(n_points):
         # Numerical cost = sum of Euclidean distances
         num_costs = num_dissim(centroids[0], Xnum[ipoint])
@@ -225,10 +263,11 @@ def labels_cost(Xnum, Xcat, centroids, num_dissim, cat_dissim, gamma, membship=N
         # Gamma relates the categorical cost to the numerical cost.
         tot_costs = num_costs + gamma * cat_costs
         clust = np.argmin(tot_costs)
+        distances[ipoint] = np.min(tot_costs)
         labels[ipoint] = clust
         cost += tot_costs[clust]
 
-    return labels, cost
+    return labels, distances, cost
 
 
 def k_prototypes(X, categorical, n_clusters, max_iter, num_dissim, cat_dissim,
