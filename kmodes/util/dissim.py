@@ -6,7 +6,14 @@ import numpy as np
 
 
 def matching_dissim(a, b, **_):
-    """Simple matching dissimilarity function"""
+    """ Simple matching dissimilarity function
+    Inputs:
+       a (npoints, nattr) (point matrix for categorical attributes)
+       b (nattr)          (centroid attribute value)
+    
+    Numpy broadcasting does the magic by adding up mismatches 
+       for each row across columns
+    """
     return np.sum(a != b, axis=1)
 
 
@@ -39,7 +46,13 @@ def jaccard_dissim_label(a, b, **__):
 
 
 def euclidean_dissim(a, b, **_):
-    """Euclidean distance dissimilarity function"""
+    """ Euclidean distance dissimilarity function
+    Inputs:
+       a (npoints, nattr) (point matrix for numerical attributes)
+       b (nattr)          (centroid attribute value)
+    
+    Numpy broadcasting does the magic by adding up for each row across columns
+    """
     if np.isnan(a).any() or np.isnan(b).any():
         raise ValueError("Missing values detected in numerical columns.")
     return np.sum((a - b) ** 2, axis=1)
