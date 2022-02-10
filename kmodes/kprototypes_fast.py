@@ -14,9 +14,7 @@ from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
 
 from . import kmodes
-# from .util import get_max_value_key
 from .util import encode_features
-# from .util import get_unique_rows
 from .util import decode_centroids
 from .util import pandas_to_numpy
 from .util.dissim import matching_dissim, euclidean_dissim
@@ -171,7 +169,7 @@ class KPrototypes(kmodes.KModes):
                                     num_dissim_f=self.num_dissim,
                                     cat_dissim_f=self.cat_dissim,
                                     gamma=self.gamma,
-                                    init=self.init,  # 'huang' or 'cao' or...
+                                    init=self.init,  # huang or cao or random
                                     n_init=self.n_init,
                                     verbose=self.verbose,
                                     random_state=self.random_state,
@@ -181,7 +179,6 @@ class KPrototypes(kmodes.KModes):
 
     def fit_predict(self, X, y=None, **kwargs):
         """Compute cluster centroids and predict cluster index for each sample.
-
         Convenience method; equivalent to calling fit(X) followed by
         predict(X).
         """
@@ -335,20 +332,8 @@ def k_prototypes(X,
     Xnum, Xcat = check_array(Xnum), check_array(Xcat, dtype=None)
 
     # Convert the categorical values in Xcat to integers for speed.
-    # Based on the unique values in Xcat, we can make a mapping to achieve this.
-    Xcat, enc_map = encode_features(Xcat, enc_map=None)  # create the mapping
-
-    # Are there more n_clusters than unique rows? Then set the unique
-    # rows as initial values and skip iteration.
-    #
-    # unique = get_unique_rows(X)
-    # n_unique = unique.shape[0]
-    # if n_unique <= n_clusters:
-    #     max_iter = 0
-    #     n_init = 1
-    #     n_clusters = n_unique
-    #     init = list(_split_num_cat(unique, categorical))
-    #     init[1], _ = encode_features(init[1], enc_map)
+    # Based on the unique values in Xcat, make a mapping to achieve this
+    Xcat, enc_map = encode_features(Xcat, enc_map=None)
 
     # Estimate a good value for gamma, which determines the weighing of
     # categorical values in clusters (see Huang [1997]).
@@ -371,7 +356,8 @@ def k_prototypes(X,
                                           init, init_no, verbose, seed)
             for init_no, seed in enumerate(seeds))
 
-    all_centroids, all_labels, all_costs, all_n_iters, all_epoch_costs = zip(*results)
+    (all_centroids, all_labels,
+     all_costs, all_n_iters, all_epoch_costs) = zip(*results)
 
     best = np.argmin(all_costs)
     if n_init > 1 and verbose:
@@ -389,6 +375,7 @@ def _k_prototypes_init_cat_centroids(Xcat, n_clusters, init, cat_dissim, random_
     elif isinstance(init, str) and init.lower() == 'cao':
         centroids = init_cao(Xcat, n_clusters, cat_dissim)
     elif isinstance(init, str) and init.lower() == 'random':
+        n_points = Xcat.shape[0]
         seeds = random_state.choice(range(n_points), n_clusters)
         centroids = Xcat[seeds]
     elif isinstance(init, list):
@@ -501,7 +488,7 @@ def _k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs, n_clusters, n_points,
         converged = ((num_points_moved == 0) or
                      (cost > cost_prev) or
                      (n_iters > max_iter))
-    return (centroids_prev, labels_prev, cost_prev, n_iters, cost_prev)
+    return (centroids, labels, cost, n_iters, cost)
 
 
 def _split_num_cat(X, categorical):
