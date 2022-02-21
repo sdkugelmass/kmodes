@@ -162,7 +162,7 @@ class KPrototypes(kmodes.KModes):
         (self._enc_cluster_centroids, self._enc_map,
          self.labels_, self.cost_,
          self.n_iter_, self.epoch_costs_,
-         self.gamma) = k_prototypes(X,
+         self.gamma, self.distances_) = k_prototypes(X,
                                     categorical=categorical,
                                     n_clusters=self.n_clusters,
                                     max_iter=self.max_iter,
@@ -363,7 +363,7 @@ def k_prototypes(X,
             for init_no, seed in enumerate(seeds))
 
     (all_centroids, all_labels,
-     all_costs, all_n_iters, all_epoch_costs) = zip(*results)
+     all_costs, all_n_iters, all_epoch_costs, all_distances) = zip(*results)
 
     best = np.argmin(all_costs)
     if n_init > 1 and verbose:
@@ -371,7 +371,7 @@ def k_prototypes(X,
 
     # Note: return gamma in case it was automatically determined.
     return all_centroids[best], enc_map, all_labels[best], all_costs[best], \
-        all_n_iters[best], all_epoch_costs[best], gamma
+        all_n_iters[best], all_epoch_costs[best], gamma, all_distances[best]
 
 
 def _k_prototypes_init_cat_centroids(Xcat, n_clusters, init, cat_dissim, random_state):
@@ -507,7 +507,7 @@ def _k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs, n_clusters, n_points,
         converged = ((num_points_moved == 0) or
                      (cost > cost_prev) or
                      (n_iters > max_iter))
-    return (centroids, labels, cost, n_iters, cost)
+    return (centroids, labels, cost, n_iters, cost, distances)
 
 
 def _split_num_cat(X, categorical):
