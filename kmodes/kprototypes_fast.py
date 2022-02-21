@@ -281,16 +281,22 @@ def labels_cost(Xnum, Xcat, centroids,
     return labels, distances, cost
 
 
-def _k_prototypes_update_centroids(Xnum, Xcat, n_clusters, labels):
+def _k_prototypes_update_centroids(Xnum, Xcat, n_clusters, labels,
+                                   centroids_prev=None):
     centroids_num = np.zeros((n_clusters, Xnum.shape[1]))
     centroids_cat = np.zeros((n_clusters, Xcat.shape[1]))
     for iclust in range(n_clusters):
         indexset = (labels == iclust)  # list of points in that cluster
-        clust_memb_num = Xnum[indexset]  # numer attr of elements of cluster
-        clust_memb_cat = Xcat[indexset]  # categ attr of elements of cluster
-        # update centroid coords to mean(numer attrs), mode (categ attrs)
-        centroids_num[iclust, :] = clust_memb_num.mean(axis=0)
-        centroids_cat[iclust, :] = stats.mode(clust_memb_cat, axis=0).mode[0]
+        if indexset.sum() > 0:
+            clust_memb_num = Xnum[indexset]  # numer attr of elements of cluster
+            clust_memb_cat = Xcat[indexset]  # categ attr of elements of cluster
+            # update centroid coords to mean(numer attrs), mode (categ attrs)
+            centroids_num[iclust, :] = clust_memb_num.mean(axis=0)
+            centroids_cat[iclust, :] = stats.mode(clust_memb_cat, axis=0).mode[0]
+        elif centroids_prev:
+            centroids_num[iclust] = centroids_prev[0][iclust]
+            centroids_cat[iclust] = centroids_prev[1][iclust]
+            
     return [centroids_num, centroids_cat]
 
 
@@ -432,25 +438,36 @@ def _k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs, n_clusters, n_points,
     4) Cost increased? No points moved?
     '''
 
-    if verbose:
-        print("Init: initializing centroids")
-    # centroids[0] is (nclusters, n_num_attrs)
-    # centroids[1] is (nclusters, n_cat_attrs)
-    if verbose:
-        print("Initializing centroid numerical attributes")
-    centroids_num = _k_prototypes_init_num_centroids(Xnum, n_clusters, random_state)
+    n_initial_attempts = 0
+    max_initital_attempts = 10
+    success_init = False
 
-    if verbose:
-        print("Initializing centroid categorical attributes")
-    centroids_cat = _k_prototypes_init_cat_centroids(Xcat, n_clusters, init,
-                                                     cat_dissim, random_state)
+    while not success_init and n_initial_attempts < max_initital_attempts:
+        # centroids[0] is (nclusters, n_num_attrs)
+        # centroids[1] is (nclusters, n_cat_attrs)
 
-    centroids = [centroids_num, centroids_cat]
+        if verbose:
+            print("Initializing centroid numerical attributes")
+        centroids_num = _k_prototypes_init_num_centroids(Xnum, n_clusters, random_state)
 
-    if verbose:
-        print("Init: initial cluster assignment")
-    labels, distances, cost = labels_cost(Xnum, Xcat, centroids,
-                                          num_dissim, cat_dissim, gamma)
+        if verbose:
+            print("Initializing centroid categorical attributes")
+        centroids_cat = _k_prototypes_init_cat_centroids(Xcat, n_clusters, init,
+                                                         cat_dissim, random_state)
+
+        centroids = [centroids_num, centroids_cat]
+
+        if verbose:
+            print("Init: initial cluster assignment")
+        labels, distances, cost = labels_cost(Xnum, Xcat, centroids,
+                                              num_dissim, cat_dissim, gamma)
+
+        if np.unique(labels).shape[0] != n_clusters:
+            if verbose:
+                print("empty cluster!")
+            n_initial_attempts += 1
+        else:
+            success_init = True
 
     converged = False
     n_iters = 0
@@ -468,7 +485,9 @@ def _k_prototypes_single(Xnum, Xcat, nnumattrs, ncatattrs, n_clusters, n_points,
             print(centroids[1])
 
         centroids = \
-            _k_prototypes_update_centroids(Xnum, Xcat, n_clusters, labels_prev)
+            _k_prototypes_update_centroids(Xnum, Xcat, n_clusters,
+                                           labels_prev,
+                                           centroids_prev=centroids_prev)
 
         if verbose > 1:
             print("After centroid update:")
