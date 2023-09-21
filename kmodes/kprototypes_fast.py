@@ -292,7 +292,7 @@ def _k_prototypes_update_centroids(Xnum, Xcat, n_clusters, labels,
             clust_memb_cat = Xcat[indexset]  # categ attr of elements of cluster
             # update centroid coords to mean(numer attrs), mode (categ attrs)
             centroids_num[iclust, :] = clust_memb_num.mean(axis=0)
-            centroids_cat[iclust, :] = stats.mode(clust_memb_cat, axis=0).mode[0]
+            centroids_cat[iclust, :] = stats.mode(clust_memb_cat, axis=0).mode
         elif centroids_prev:
             centroids_num[iclust] = centroids_prev[0][iclust]
             centroids_cat[iclust] = centroids_prev[1][iclust]
